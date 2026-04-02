@@ -13,7 +13,6 @@
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         
-        /* 置頂過期記錄的動畫效果 */
         .expired-row {
             animation: pulse-red 2s infinite;
         }
@@ -70,7 +69,6 @@
                     </button>
                 </div>
                 <input type="file" id="import-file" class="hidden" accept=".json" onchange="handleImport(event)">
-                <p class="text-[8px] text-slate-400 mt-2 text-center">下載為 JSON 檔案後可於另一台電腦匯入</p>
             </div>
         </aside>
 
@@ -88,30 +86,9 @@
         
         const categories = ['護士', '病人助理', '文員'];
         
-        const defaultNurseNames = [
-            "SHEK, KA YAN", "CHAN, HIU TUNG", "WONG, CHI HANG", "CHEUNG, SZE WAN", "CHENG, KWAI FA",
-            "NG, PUI SHAN", "LAM, CHI YIN", "LAM, YUEN CHEUNG", "CHAN, LING LING", "WU, HO MING",
-            "CHAN, PIK KI", "CHOW, YIM FUN", "LO, MAN TING", "CHAN, LOK TING", "IP, SZE LOK",
-            "CHEN, CHUN KIT", "WU, MAN KUEN", "CHEUNG, KA MAN", "FOK, KA MAN", "LAU, YIN TING",
-            "KEUNG, PUI MAN", "AU-YEUNG, WAN TING", "CHAN, KAI YIK", "CHAN, CHEUK YU MABEL",
-            "WONG, NUEN TING BONNY", "YEUNG, KA YAN PHOEBE", "LAM, WAI CHING", "LEUNG, HO LING",
-            "KO, MAU LAM", "WANG, WAI KWONG", "LUM, KA CHE", "LI, SALLY SZE MAN", "YEUNG, CHI MEI",
-            "TAM, CHAU WA", "TAM, HIU YEUNG", "LEE, KIT YING", "LI, CHI SAU", "WONG, MUNG YAN",
-            "LI, WAI MAN BETH", "LAU, SAU MAN EMILY", "MA, TING YIN", "WONG, LOK CHING",
-            "CHAN, CHUNG TING", "NG, CHUI YAN", "FONG, CHUNG YIN", "LIU, HO LAAM", "FUNG, HIU CHING",
-            "LAI, Hoi Yi", "SO, SZE KI", "WONG, HO FUNG", "LEW, HO CHING", "CHENG, KA YUEN",
-            "CHUI, KA KI", "GAO, ZHIYING", "TONG, KAR YEE MARY", "YIP, OI WUN", "YIP, SHEUNG HOI", 
-            "CHAN, MEI MEI", "LEE, YUEN YEE", "LI, HO YAN", "CHUNG, YEUK LAM CHRIS", "CHAN, NGA CHI", 
-            "CHU, MAN CHAK", "CHENG, YUE TUNG", "AU, PAN LIN", "LUK, WING HEI"
-        ];
-        
-        const defaultPCANames = [
-            "吳美霖", "黃琳鳳", "黃惠仙", "李美琴", "羅瓊珍", "楊蘇英", "何麗珠", "廖桂媚", 
-            "王麗君", "余佩玲", "黃麗娟", "吳雲婷", "黃玉貞", "廖靖華", "曹鳳娥", "王萍", 
-            "李頌美", "祈永華", "李潔", "江紅", "陳小青", "靈慧平", "魏彩雯", "吳玉玲", 
-            "葉彩玲", "曹陽清", "崔柳芬", "徐定媛", "謝潔萍", "陳維寶", "翁麗娟"
-        ];
-
+        // 預設名單
+        const defaultNurseNames = ["SHEK, KA YAN", "CHAN, HIU TUNG", "WONG, CHI HANG", "CHEUNG, SZE WAN", "CHENG, KWAI FA", "NG, PUI SHAN", "LAM, CHI YIN", "LAM, YUEN CHEUNG", "CHAN, LING LING", "WU, HO MING", "CHAN, PIK KI", "CHOW, YIM FUN", "LO, MAN TING", "CHAN, LOK TING", "IP, SZE LOK", "CHEN, CHUN KIT", "WU, MAN KUEN", "CHEUNG, KA MAN", "FOK, KA MAN", "LAU, YIN TING", "KEUNG, PUI MAN", "AU-YEUNG, WAN TING", "CHAN, KAI YIK", "CHAN, CHEUK YU MABEL", "WONG, NUEN TING BONNY", "YEUNG, KA YAN PHOEBE", "LAM, WAI CHING", "LEUNG, HO LING", "KO, MAU LAM", "WANG, WAI KWONG", "LUM, KA CHE", "LI, SALLY SZE MAN", "YEUNG, CHI MEI", "TAM, CHAU WA", "TAM, HIU YEUNG", "LEE, KIT YING", "LI, CHI SAU", "WONG, MUNG YAN", "LI, WAI MAN BETH", "LAU, SAU MAN EMILY", "MA, TING YIN", "WONG, LOK CHING", "CHAN, CHUNG TING", "NG, CHUI YAN", "FONG, CHUNG YIN", "LIU, HO LAAM", "FUNG, HIU CHING", "LAI, Hoi Yi", "SO, SZE KI", "WONG, HO FUNG", "LEW, HO CHING", "CHENG, KA YUEN", "CHUI, KA KI", "GAO, ZHIYING", "TONG, KAR YEE MARY", "YIP, OI WUN", "YIP, SHEUNG HOI", "CHAN, MEI MEI", "LEE, YUEN YEE", "LI, HO YAN", "CHUNG, YEUK LAM CHRIS", "CHAN, NGA CHI", "CHU, MAN CHAK", "CHENG, YUE TUNG", "AU, PAN LIN", "LUK, WING HEI"];
+        const defaultPCANames = ["吳美霖", "黃琳鳳", "黃惠仙", "李美琴", "羅瓊珍", "楊蘇英", "何麗珠", "廖桂媚", "王麗君", "余佩玲", "黃麗娟", "吳雲婷", "黃玉貞", "廖靖華", "曹鳳娥", "王萍", "李頌美", "祈永華", "李潔", "江紅", "陳小青", "靈慧平", "魏彩雯", "吳玉玲", "葉彩玲", "曹陽清", "崔柳芬", "徐定媛", "謝潔萍", "陳維寶", "翁麗娟"];
         const defaultClerkNames = ["Kwong Chi Ho", "Tang Che Ho", "Wong Yuen Suen", "Chau Ka Yan", "Oliver Tam Wai Yee"];
 
         let memberList = JSON.parse(localStorage.getItem('tko_members'));
@@ -222,6 +199,13 @@
             return 'bg-slate-600';
         }
 
+        function getCategoryBorderColor(cat) {
+            if (cat === '護士') return 'border-blue-200';
+            if (cat === '病人助理') return 'border-emerald-200';
+            if (cat === '文員') return 'border-amber-200';
+            return 'border-slate-200';
+        }
+
         function render() {
             renderSidebar();
             const container = document.getElementById('main-view');
@@ -297,21 +281,39 @@
         }
 
         function renderLogsView(container) {
-            const totalBalance = logs.reduce((sum, l) => sum + (l.type === 'overtime' ? l.minutes : -l.minutes), 0);
+            const catStats = categories.map(cat => {
+                const balance = logs.filter(l => l.category === cat).reduce((sum, l) => sum + (l.type === 'overtime' ? l.minutes : -l.minutes), 0);
+                return { cat, balance };
+            });
+            const totalBalance = catStats.reduce((sum, s) => sum + s.balance, 0);
             const isOT = activeTab === 'overtime';
+
             container.innerHTML = `
                 <div class="${isOT ? 'bg-slate-800' : 'bg-emerald-900'} rounded-3xl shadow-xl p-6 text-white transition-colors duration-500">
-                    <div class="flex justify-between items-center">
-                        <div class="flex items-center gap-4">
-                            <div class="${isOT ? 'bg-red-500' : 'bg-emerald-500'} p-3 rounded-2xl"><i data-lucide="${isOT ? 'clock' : 'coffee'}" size="28"></i></div>
-                            <div><h1 class="text-xl font-bold">${isOT ? '超時記錄填報' : '補時記錄填報'}</h1><p class="text-slate-400 text-xs">將軍澳醫院急症室專用系統</p></div>
+                    <div class="flex flex-col gap-6">
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-4">
+                                <div class="${isOT ? 'bg-red-500' : 'bg-emerald-500'} p-3 rounded-2xl"><i data-lucide="${isOT ? 'clock' : 'coffee'}" size="28"></i></div>
+                                <div><h1 class="text-xl font-bold">${isOT ? '超時記錄填報' : '補時記錄填報'}</h1><p class="text-slate-400 text-xs uppercase font-bold tracking-tighter">TKO ER System</p></div>
+                            </div>
+                            <div class="bg-white/10 p-3 rounded-2xl border border-white/10 text-center px-6 min-w-[120px]">
+                                <div class="text-[10px] text-white/60 font-bold uppercase">全體總結餘</div>
+                                <div class="text-2xl font-black ${totalBalance >= 0 ? 'text-emerald-400' : 'text-red-400'}">${totalBalance} min</div>
+                            </div>
                         </div>
-                        <div class="bg-white/10 p-3 rounded-2xl border border-white/10 text-center px-6 min-w-[120px]">
-                            <div class="text-[10px] text-white/60 font-bold uppercase">總計餘</div>
-                            <div class="text-2xl font-black ${totalBalance >= 0 ? 'text-emerald-400' : 'text-red-400'}">${totalBalance} min</div>
+                        
+                        <!-- 分類統計區域 -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            ${catStats.map(s => `
+                                <div class="bg-white/5 border border-white/10 rounded-2xl p-3 flex flex-col items-center justify-center">
+                                    <div class="text-[9px] font-black uppercase text-white/40 tracking-widest">${s.cat}</div>
+                                    <div class="text-lg font-black ${s.balance >= 0 ? 'text-emerald-400' : 'text-red-400'}">${s.balance} <span class="text-[10px] text-white/40">min</span></div>
+                                </div>
+                            `).join('')}
                         </div>
                     </div>
                 </div>
+
                 <div class="bg-white rounded-2xl shadow-sm p-6 border border-slate-200">
                     <form onsubmit="submitLog(event)" class="space-y-6">
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -326,6 +328,7 @@
                         </div>
                     </form>
                 </div>
+
                 <div class="space-y-6 mt-12">
                     <div class="flex items-center justify-between px-2">
                         <div class="flex items-center gap-3">
@@ -387,16 +390,13 @@
 
             container.innerHTML = Object.entries(grouped).map(([cat, data]) => `
                 <div class="space-y-4 mb-8">
-                    ${!selectedNameFilter ? `<div class="flex items-center justify-between px-2"><div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full ${getCategoryColor(cat)}"></span><h3 class="font-black text-slate-800 text-lg">${cat}</h3></div><div class="text-xs font-bold text-slate-500 bg-white border border-slate-200 px-3 py-1 rounded-full">小計: <span class="${data.total >= 0 ? 'text-emerald-600' : 'text-red-600'}">${data.total} min</span></div></div>` : ''}
+                    ${!selectedNameFilter ? `<div class="flex items-center justify-between px-2"><div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full ${getCategoryColor(cat)}"></span><h3 class="font-black text-slate-800 text-lg">${cat}</h3></div><div class="text-xs font-bold text-slate-500 bg-white border border-slate-200 px-3 py-1 rounded-full">類別小計: <span class="${data.total >= 0 ? 'text-emerald-600' : 'text-red-600'}">${data.total} min</span></div></div>` : ''}
                     ${Object.entries(data.members).map(([name, member]) => {
-                        // 排序邏輯：
-                        // 1. 先按是否超過六個月 (逾期者置頂)
-                        // 2. 再按日期降序 (新到舊)
                         const sortedItems = member.items.sort((a, b) => {
-                            const aIsOld = isOverSixMonths(a.date);
-                            const bIsOld = isOverSixMonths(b.date);
-                            if (aIsOld && !bIsOld) return -1;
-                            if (!aIsOld && bIsOld) return 1;
+                            const aOld = isOverSixMonths(a.date);
+                            const bOld = isOverSixMonths(b.date);
+                            if (aOld && !bOld) return -1;
+                            if (!aOld && bOld) return 1;
                             return new Date(b.date) - new Date(a.date);
                         });
 
@@ -407,7 +407,7 @@
                                     <div class="h-6 w-6 rounded-md ${getCategoryColor(cat)} text-white flex items-center justify-center text-[10px] font-bold">${cat.charAt(0)}</div>
                                     <span class="font-bold text-slate-700">${name}</span>
                                 </div>
-                                <span class="text-sm font-black ${member.balance >= 0 ? 'text-emerald-600' : 'text-red-600'}">結餘: ${member.balance} min</span>
+                                <span class="text-sm font-black ${member.balance >= 0 ? 'text-emerald-600' : 'text-red-600'}">同事結餘: ${member.balance} min</span>
                             </div>
                             <div class="divide-y divide-slate-50">
                                 ${sortedItems.map(item => {
