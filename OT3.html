@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>將軍澳醫院急症室時數管理系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+    <div id="app" class="flex flex-col md:flex-row min-h-screen">
+        <!-- 側邊欄 -->
+        <aside class="w-full md:w-64 bg-white border-b md:border-r border-slate-200 p-6 flex-shrink-0 flex flex-col">
+            <div class="flex items-center gap-2 mb-8">
+                <div class="p-1.5 bg-red-600 rounded-lg text-white"><i data-lucide="hospital" size="18"></i></div>
+                <div>
+                    <h2 class="font-bold text-slate-800 leading-tight">將軍澳醫院</h2>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-tight">急症室時數管理</p>
+                </div>
+            </div>
+            
+            <div class="flex flex-col gap-1 mb-8" id="nav-buttons">
+                <button onclick="switchTab('overtime')" id="btn-overtime" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all bg-red-50 text-red-700">
+                    <i data-lucide="arrow-up-circle" size="18"></i> 超時記錄 (OT)
+                </button>
+                <button onclick="switchTab('off')" id="btn-off" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all text-slate-500 hover:bg-slate-50">
+                    <i data-lucide="coffee" size="18"></i> 補時記錄 (Off)
+                </button>
+                <button onclick="switchTab('schedule')" id="btn-schedule" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all text-slate-500 hover:bg-slate-50">
+                    <i data-lucide="calendar-clock" size="18"></i> 補時時間參考
+                </button>
+                <button onclick="switchTab('members')" id="btn-members" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all text-slate-500 hover:bg-slate-50">
+                    <i data-lucide="users" size="18"></i> 同事管理
+                </button>
+            </div>
+
+            <div id="filter-section" class="pt-4 border-t border-slate-100">
+                <label class="text-[10px] font-bold text-slate-400 uppercase mb-3 block tracking-wider">職位快篩 (查看歷史時)</label>
+                <nav class="space-y-1" id="category-filters"></nav>
+            </div>
+
+            <!-- 新增：本機資料備份區 -->
+            <div class="mt-auto pt-6 border-t border-slate-100">
+                <label class="text-[10px] font-bold text-slate-400 uppercase mb-3 block tracking-wider">本機資料管理</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="downloadBackup()" class="flex flex-col items-center justify-center p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition-all">
+                        <i data-lucide="download-cloud" size="16"></i>
+                        <span class="text-[9px] mt-1 font-bold">下載備份</span>
+                    </button>
+                    <button onclick="triggerImport()" class="flex flex-col items-center justify-center p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition-all">
+                        <i data-lucide="upload-cloud" size="16"></i>
+                        <span class="text-[9px] mt-1 font-bold">匯入備份</span>
+                    </button>
+                </div>
+                <input type="file" id="import-file" class="hidden" accept=".json" onchange="handleImport(event)">
+                <p class="text-[8px] text-slate-400 mt-2 text-center">下載為 JSON 檔案後可於另一台電腦匯入</p>
+            </div>
+        </aside>
+
+        <!-- 主要內容區域 -->
+        <main class="flex-1 p-4 sm:p-8 overflow-y-auto custom-scrollbar">
+            <div class="max-w-4xl mx-auto space-y-6" id="main-view"></div>
+        </main>
+    </div>
+
+    <script>
+        // --- 狀態管理 ---
+        let activeTab = 'overtime';
+        let activeFilter = null; 
+        let selectedNameFilter = ""; 
+        
+        const categories = ['護士', '病人助理', '文員'];
+        
+        const defaultNurseNames = [
+            "SHEK, KA YAN", "CHAN, HIU TUNG", "WONG, CHI HANG", "CHEUNG, SZE WAN", "CHENG, KWAI FA",
+            "NG, PUI SHAN", "LAM, CHI YIN", "LAM, YUEN CHEUNG", "CHAN, LING LING", "WU, HO MING",
+            "CHAN, PIK KI", "CHOW, YIM FUN", "LO, MAN TING", "CHAN, LOK TING", "IP, SZE LOK",
+            "CHEN, CHUN KIT", "WU, MAN KUEN", "CHEUNG, KA MAN", "FOK, KA MAN", "LAU, YIN TING",
+            "KEUNG, PUI MAN", "AU-YEUNG, WAN TING", "CHAN, KAI YIK", "CHAN, CHEUK YU MABEL",
+            "WONG, NUEN TING BONNY", "YEUNG, KA YAN PHOEBE", "LAM, WAI CHING", "LEUNG, HO LING",
+            "KO, MAU LAM", "WANG, WAI KWONG", "LUM, KA CHE", "LI, SALLY SZE MAN", "YEUNG, CHI MEI",
+            "TAM, CHAU WA", "TAM, HIU YEUNG", "LEE, KIT YING", "LI, CHI SAU", "WONG, MUNG YAN",
+            "LI, WAI MAN BETH", "LAU, SAU MAN EMILY", "MA, TING YIN", "WONG, LOK CHING",
+            "CHAN, CHUNG TING", "NG, CHUI YAN", "FONG, CHUNG YIN", "LIU, HO LAAM", "FUNG, HIU CHING",
+            "LAI, Hoi Yi", "SO, SZE KI", "WONG, HO FUNG", "LEW, HO CHING", "CHENG, KA YUEN",
+            "CHUI, KA KI", "GAO, ZHIYING", "TONG, KAR YEE MARY", "YIP, OI WUN", "YIP, SHEUNG HOI", 
+            "CHAN, MEI MEI", "LEE, YUEN YEE", "LI, HO YAN", "CHUNG, YEUK LAM CHRIS", "CHAN, NGA CHI", 
+            "CHU, MAN CHAK", "CHENG, YUE TUNG", "AU, PAN LIN", "LUK, WING HEI"
+        ];
+        
+        const defaultPCANames = [
+            "吳美霖", "黃琳鳳", "黃惠仙", "李美琴", "羅瓊珍", "楊蘇英", "何麗珠", "廖桂媚", 
+            "王麗君", "余佩玲", "黃麗娟", "吳雲婷", "黃玉貞", "廖靖華", "曹鳳娥", "王萍", 
+            "李頌美", "祈永華", "李潔", "江紅", "陳小青", "靈慧平", "魏彩雯", "吳玉玲", 
+            "葉彩玲", "曹陽清", "崔柳芬", "徐定媛", "謝潔萍", "陳維寶", "翁麗娟"
+        ];
+
+        const defaultClerkNames = ["Kwong Chi Ho", "Tang Che Ho", "Wong Yuen Suen", "Chau Ka Yan", "Oliver Tam Wai Yee"];
+
+        let memberList = JSON.parse(localStorage.getItem('tko_members'));
+        if (!memberList) {
+            memberList = [
+                ...defaultNurseNames.map((name, index) => ({ id: 300 + index, name, category: '護士', isApprover: false })),
+                ...defaultPCANames.map((name, index) => ({ id: 100 + index, name, category: '病人助理', isApprover: false })),
+                ...defaultClerkNames.map((name, index) => ({ id: 200 + index, name, category: '文員', isApprover: false }))
+            ];
+        }
+        
+        let logs = JSON.parse(localStorage.getItem('tko_logs')) || [];
+
+        const reasonConfig = {
+            '臨床服務': ['急救', '護送病人', '突發事件支援'],
+            '行政/會議': ['部門會議', '培訓活動'],
+            '其他': 'text'
+        };
+
+        const toilSchedule = [
+            { duty: 'A', rank: 'Nurse/PCA', official: '15:48', t15: '15:33', t30: '15:18', t45: '15:03', t60: '14:48', t120: '13:48' },
+            { duty: 'A/N', rank: 'Nurse', official: '15:13^', t15: '14:58', t30: '14:43', t45: '14:28', t60: '14:13', t120: '13:13' },
+            { duty: 'A/N', rank: 'PCA', official: '15:08^', t15: '14:53', t30: '14:43', t45: '14:23', t60: '14:08', t120: '13:08' },
+            { duty: 'D', rank: 'Nurse/PCA', official: '17:48', t15: '17:33', t30: '17:18', t45: '17:03', t60: '16:48', t120: '15:48' },
+            { duty: 'I', rank: 'Nurse/PCA', official: '23:00', t15: '22:45', t30: '22:30', t45: '22:15', t60: '22:00', t120: '21:00' },
+            { duty: 'P', rank: 'Nurse/PCA', official: '22:18', t15: '22:03', t30: '21:48', t45: '21:33', t60: '21:18', t120: '20:18' }
+        ];
+
+        function saveToLocal() {
+            localStorage.setItem('tko_members', JSON.stringify(memberList));
+            localStorage.setItem('tko_logs', JSON.stringify(logs));
+        }
+
+        // --- 備份管理功能 ---
+        function downloadBackup() {
+            const data = {
+                members: memberList,
+                logs: logs,
+                timestamp: new Date().toISOString()
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `TKO_ER_Backup_${new Date().toLocaleDateString()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function triggerImport() {
+            document.getElementById('import-file').click();
+        }
+
+        function handleImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (confirm(`確定要覆蓋當前資料嗎？這將載入共 ${data.logs.length} 筆記錄。`)) {
+                        memberList = data.members;
+                        logs = data.logs;
+                        saveToLocal();
+                        render();
+                        alert("匯入成功！");
+                    }
+                } catch (err) {
+                    alert("匯入失敗：無效的 JSON 格式。");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function exportToExcel() {
+            let filteredLogs = logs;
+            let filename = "TKO_ER_Hours_All.csv";
+            if (selectedNameFilter) {
+                filteredLogs = logs.filter(l => l.name === selectedNameFilter);
+                filename = `TKO_ER_Hours_${selectedNameFilter}.csv`;
+            } else if (activeFilter) {
+                filteredLogs = logs.filter(l => l.category === activeFilter);
+                filename = `TKO_ER_Hours_${activeFilter}.csv`;
+            }
+            if (filteredLogs.length === 0) { alert("目前沒有記錄可供匯出。"); return; }
+            let csvContent = "\uFEFF日期,姓名,職位,類型,分鐘,原因,細項,批核者,時間範圍\n";
+            filteredLogs.forEach(log => {
+                const row = [log.date, log.name, log.category, log.type==='overtime'?'OT':'Off', log.minutes, log.reason, log.detail, log.approver, log.startTime ? `${log.startTime}-${log.endTime}` : '-'].map(val => `"${val}"`).join(",");
+                csvContent += row + "\n";
+            });
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute("download", filename);
+            link.click();
+        }
+
+        function calculateMinutes(start, end) {
+            const [startH, startM] = start.split(':').map(Number);
+            const [endH, endM] = end.split(':').map(Number);
+            let diff = (endH * 60 + endM) - (startH * 60 + startM);
+            if (diff < 0) diff += 1440; 
+            return diff;
+        }
+
+        function isOverSixMonths(dateString) {
+            const recordDate = new Date(dateString);
+            const today = new Date();
+            const diffTime = Math.abs(today - recordDate);
+            return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) > 180;
+        }
+
+        function getCategoryColor(cat) {
+            if (cat === '護士') return 'bg-blue-600';
+            if (cat === '病人助理') return 'bg-emerald-600';
+            if (cat === '文員') return 'bg-amber-600';
+            return 'bg-slate-600';
+        }
+
+        function render() {
+            renderSidebar();
+            const container = document.getElementById('main-view');
+            if (activeTab === 'members') renderMembersView(container);
+            else if (activeTab === 'schedule') renderScheduleView(container);
+            else renderLogsView(container);
+            lucide.createIcons();
+        }
+
+        function renderSidebar() {
+            const filterContainer = document.getElementById('category-filters');
+            filterContainer.innerHTML = `<button onclick="setFilter(null)" class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium ${activeFilter === null ? 'bg-slate-100 text-slate-700' : 'text-slate-500 hover:bg-slate-100'}">顯示所有職位 <span>${logs.length}</span></button>`;
+            categories.forEach(cat => {
+                const count = logs.filter(l => l.category === cat).length;
+                filterContainer.innerHTML += `<button onclick="setFilter('${cat}')" class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium ${activeFilter === cat ? 'bg-slate-200 text-slate-800' : 'text-slate-500 hover:bg-slate-100'}">${cat} <span>${count}</span></button>`;
+            });
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('bg-red-50', 'text-red-700', 'bg-emerald-50', 'text-emerald-700', 'bg-blue-50', 'text-blue-700', 'bg-slate-900', 'text-white');
+                btn.classList.add('text-slate-500', 'hover:bg-slate-50');
+            });
+            const activeBtn = document.getElementById(`btn-${activeTab}`);
+            activeBtn.classList.remove('text-slate-500', 'hover:bg-slate-50');
+            if (activeTab === 'overtime') activeBtn.classList.add('bg-red-50', 'text-red-700');
+            else if (activeTab === 'off') activeBtn.classList.add('bg-emerald-50', 'text-emerald-700');
+            else if (activeTab === 'schedule') activeBtn.classList.add('bg-blue-50', 'text-blue-700');
+            else activeBtn.classList.add('bg-slate-900', 'text-white');
+            document.getElementById('filter-section').style.display = (activeTab === 'members' || activeTab === 'schedule') ? 'none' : 'block';
+        }
+
+        function renderScheduleView(container) {
+            container.innerHTML = `
+                <div class="space-y-6">
+                    <div class="bg-slate-800 rounded-3xl shadow-xl p-8 text-white flex items-center gap-4">
+                        <div class="bg-white/20 p-3 rounded-2xl backdrop-blur-md"><i data-lucide="calendar-clock" size="28"></i></div>
+                        <div><h1 class="text-xl font-bold">補時時間對照表</h1><p class="text-slate-300 text-xs">TOIL (mins) 補鐘參考 (更份/職級)</p></div>
+                    </div>
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-slate-50 text-slate-500 text-[10px] font-black uppercase tracking-wider border-b border-slate-200">
+                                <tr>
+                                    <th class="px-6 py-4">Duty Pattern</th><th class="px-6 py-4">Rank</th><th class="px-6 py-4 bg-slate-100 text-center">Official Time</th>
+                                    <th class="px-4 py-4 text-center">-15</th><th class="px-4 py-4 text-center">-30</th><th class="px-4 py-4 text-center">-45</th>
+                                    <th class="px-4 py-4 text-center">-60</th><th class="px-4 py-4 text-center">-120</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                ${toilSchedule.map(row => `<tr><td class="px-6 py-4 font-bold">${row.duty}</td><td class="px-6 py-4">${row.rank}</td><td class="px-6 py-4 bg-slate-50/50 text-center">${row.official}</td><td class="px-4 py-4 text-center">${row.t15}</td><td class="px-4 py-4 text-center">${row.t30}</td><td class="px-4 py-4 text-center">${row.t45}</td><td class="px-4 py-4 text-center">${row.t60}</td><td class="px-4 py-4 text-center">${row.t120}</td></tr>`).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderMembersView(container) {
+            container.innerHTML = `
+                <div class="space-y-6">
+                    <div class="bg-slate-900 rounded-3xl shadow-xl p-8 text-white flex items-center gap-4">
+                        <div class="bg-red-500 p-3 rounded-2xl"><i data-lucide="users" size="28"></i></div>
+                        <div><h1 class="text-xl font-bold">同事管理</h1><p class="text-slate-400 text-xs">設定急症室成員職位及批核權限</p></div>
+                    </div>
+                    <div class="bg-white rounded-2xl shadow-sm p-6 border border-slate-200">
+                        <form onsubmit="addMember(event)" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                            <input type="text" id="new-name" class="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm" placeholder="輸入姓名..." required>
+                            <select id="new-cat" class="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm">${categories.map(c => `<option value="${c}">${c}</option>`).join('')}</select>
+                            <div class="flex items-center gap-2 py-2 mb-1"><input type="checkbox" id="new-approver" class="w-4 h-4 text-red-600"><label for="new-approver" class="text-xs font-bold text-slate-600">具批核權限</label></div>
+                            <button type="submit" class="bg-red-600 text-white px-6 py-2 rounded-xl font-bold text-sm">新增成員</button>
+                        </form>
+                    </div>
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden text-sm">${categories.map(cat => `<div class="px-6 py-2 text-white text-[10px] font-black uppercase tracking-widest ${getCategoryColor(cat)}">${cat} (${memberList.filter(m => m.category === cat).length})</div><div class="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">${memberList.filter(m => m.category === cat).map(m => `<div class="px-6 py-4 flex items-center justify-between"><div><span class="font-bold text-slate-800">${m.name}</span><div class="text-[10px] text-slate-400">${m.isApprover ? '批核者' : '一般成員'}</div></div><div class="flex gap-2"><button onclick="toggleApprover(${m.id})" class="p-2 ${m.isApprover ? 'text-red-600' : 'text-slate-300'}"><i data-lucide="shield-check" size="18"></i></button><button onclick="deleteMember(${m.id})" class="p-2 text-slate-300"><i data-lucide="user-minus" size="18"></i></button></div></div>`).join('')}</div>`).join('')}</div>
+                </div>
+            `;
+        }
+
+        function renderLogsView(container) {
+            const totalBalance = logs.reduce((sum, l) => sum + (l.type === 'overtime' ? l.minutes : -l.minutes), 0);
+            const isOT = activeTab === 'overtime';
+            container.innerHTML = `
+                <div class="${isOT ? 'bg-slate-800' : 'bg-emerald-900'} rounded-3xl shadow-xl p-6 text-white transition-colors duration-500">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-4">
+                            <div class="${isOT ? 'bg-red-500' : 'bg-emerald-500'} p-3 rounded-2xl"><i data-lucide="${isOT ? 'clock' : 'coffee'}" size="28"></i></div>
+                            <div><h1 class="text-xl font-bold">${isOT ? '超時記錄填報' : '補時記錄填報'}</h1><p class="text-slate-400 text-xs">將軍澳醫院急症室專用系統</p></div>
+                        </div>
+                        <div class="bg-white/10 p-3 rounded-2xl border border-white/10 text-center px-6 min-w-[120px]">
+                            <div class="text-[10px] text-white/60 font-bold uppercase">總計餘</div>
+                            <div class="text-2xl font-black ${totalBalance >= 0 ? 'text-emerald-400' : 'text-red-400'}">${totalBalance} min</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl shadow-sm p-6 border border-slate-200">
+                    <form onsubmit="submitLog(event)" class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="space-y-1"><label class="text-[10px] font-bold text-red-600 uppercase">1. 選取職位</label><select id="form-cat" onchange="handleCategoryChange()" class="w-full px-4 py-2.5 border border-red-100 rounded-xl bg-red-50/20 text-sm font-bold">${categories.map(cat => `<option value="${cat}">${cat}</option>`).join('')}</select></div>
+                            <div class="space-y-1"><label class="text-[10px] font-bold text-red-600 uppercase">2. 同事姓名</label><select id="form-name" onchange="handleNameSelectChange()" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold" required></select></div>
+                            <div class="space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase">日期</label><input type="date" id="form-date" value="${new Date().toISOString().split('T')[0]}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl bg-slate-50 text-sm"></div>
+                        </div>
+                        ${isOT ? `<div class="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2 border-t border-slate-50"><div class="space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase">開始時間</label><input type="time" id="form-start" value="14:00" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm"></div><div class="space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase">結束時間</label><input type="time" id="form-end" value="16:00" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm"></div><div class="space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase">超時原因</label><select id="form-reason" onchange="updateDetailField()" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold">${Object.keys(reasonConfig).map(r => `<option value="${r}">${r}</option>`).join('')}</select></div><div class="space-y-1" id="detail-field-container"></div></div>` : `<div class="space-y-1 pt-2 border-t border-slate-50"><label class="text-[10px] font-bold text-emerald-600 uppercase">補時(Off)長度</label><select id="form-off-min" class="w-full px-4 py-2.5 border border-emerald-100 rounded-xl bg-emerald-50/20 text-sm font-bold">${Array.from({length: 16}, (_, i) => (i+1)*15).map(m => `<option value="${m}">${m} 分鐘 (${Math.floor(m/60)}小時${m%60}分)</option>`).join('')}</select></div>`}
+                        <div class="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2">
+                            <div class="w-full sm:flex-1 space-y-1"><label class="text-[10px] font-bold text-red-600 uppercase">3. 批核者</label><select id="form-approver" class="w-full px-4 py-2.5 border border-red-100 rounded-xl bg-red-50/20 text-sm font-bold" required>${memberList.filter(m => m.isApprover).map(a => `<option value="${a.name}">${a.name}</option>`).join('')}</select></div>
+                            <button type="submit" class="w-full sm:w-auto px-12 py-3 rounded-xl font-bold text-white shadow-lg active:scale-95 transition-all ${isOT ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'}">提交記錄</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="space-y-6 mt-12">
+                    <div class="flex items-center justify-between px-2">
+                        <div class="flex items-center gap-3"><h2 class="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><i data-lucide="history" size="14"></i> ${selectedNameFilter ? `「${selectedNameFilter}」的歷史記錄` : (activeFilter ? `「${activeFilter}」職位歷史` : '所有歷史記錄')}</h2><button onclick="exportToExcel()" class="text-[10px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 px-3 py-1 rounded-full flex items-center gap-1"><i data-lucide="download" size="12"></i> 匯出 CSV</button></div>
+                        ${selectedNameFilter ? `<button onclick="resetNameFilter()" class="text-[10px] font-bold text-red-600 bg-red-50 px-3 py-1 rounded-full">重設篩選</button>` : ''}
+                    </div>
+                    <div id="logs-history"></div>
+                </div>
+            `;
+            updateNameList();
+            if(isOT) updateDetailField();
+            renderLogsHistory();
+        }
+
+        function handleCategoryChange() { selectedNameFilter = ""; updateNameList(); renderLogsHistory(); }
+        function handleNameSelectChange() { selectedNameFilter = document.getElementById('form-name').value; renderLogsHistory(); }
+        function resetNameFilter() { selectedNameFilter = ""; updateNameList(); renderLogsHistory(); renderSidebar(); }
+        function updateNameList() {
+            const cat = document.getElementById('form-cat').value;
+            const select = document.getElementById('form-name');
+            if (!select) return;
+            const filtered = memberList.filter(m => m.category === cat);
+            select.innerHTML = '<option value="">選擇同事姓名...</option>' + filtered.map(m => `<option value="${m.name}" ${selectedNameFilter === m.name ? 'selected' : ''}>${m.name}</option>`).join('');
+        }
+        function updateDetailField() {
+            const reason = document.getElementById('form-reason').value;
+            const container = document.getElementById('detail-field-container');
+            if (!container) return;
+            container.innerHTML = `<label class="text-[10px] font-bold text-slate-400 uppercase">細項描述</label>`;
+            if (reasonConfig[reason] === 'text') container.innerHTML += `<input type="text" id="form-detail" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm" placeholder="請手動輸入..." required>`;
+            else container.innerHTML += `<select id="form-detail" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm">${reasonConfig[reason].map(d => `<option value="${d}">${d}</option>`).join('')}</select>`;
+        }
+
+        function renderLogsHistory() {
+            const container = document.getElementById('logs-history');
+            let filteredLogs = logs;
+            if (selectedNameFilter) filteredLogs = logs.filter(l => l.name === selectedNameFilter);
+            else if (activeFilter) filteredLogs = logs.filter(l => l.category === activeFilter);
+            if (filteredLogs.length === 0) { container.innerHTML = `<div class="bg-white rounded-3xl border-2 border-dashed border-slate-200 py-16 text-center text-slate-400 font-bold">尚無任何時數記錄</div>`; return; }
+            const grouped = {};
+            filteredLogs.forEach(log => {
+                if (!grouped[log.category]) grouped[log.category] = { members: {}, total: 0 };
+                if (!grouped[log.category].members[log.name]) grouped[log.category].members[log.name] = { items: [], balance: 0 };
+                grouped[log.category].members[log.name].items.push(log);
+                const val = log.type === 'overtime' ? log.minutes : -log.minutes;
+                grouped[log.category].members[log.name].balance += val;
+                grouped[log.category].total += val;
+            });
+            container.innerHTML = Object.entries(grouped).map(([cat, data]) => `
+                <div class="space-y-4 mb-8">
+                    ${!selectedNameFilter ? `<div class="flex items-center justify-between px-2"><div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full ${getCategoryColor(cat)}"></span><h3 class="font-black text-slate-800 text-lg">${cat}</h3></div><div class="text-xs font-bold text-slate-500 bg-white border border-slate-200 px-3 py-1 rounded-full">小計: <span class="${data.total >= 0 ? 'text-emerald-600' : 'text-red-600'}">${data.total} min</span></div></div>` : ''}
+                    ${Object.entries(data.members).map(([name, member]) => `<div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-4"><div class="px-6 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/50"><div class="flex items-center gap-2"><div class="h-6 w-6 rounded-md ${getCategoryColor(cat)} text-white flex items-center justify-center text-[10px] font-bold">${cat.charAt(0)}</div><span class="font-bold text-slate-700">${name}</span></div><span class="text-sm font-black ${member.balance >= 0 ? 'text-emerald-600' : 'text-red-600'}">結餘: ${member.balance} min</span></div><div class="divide-y divide-slate-50">${member.items.sort((a,b) => new Date(b.date) - new Date(a.date)).map(item => { const isOld = isOverSixMonths(item.date); return `<div class="p-4 pl-8 flex items-center justify-between hover:bg-slate-50 group ${isOld ? 'bg-red-700 text-white' : ''}"><div class="flex items-center gap-6"><div class="min-w-[100px]"><div class="text-[11px] flex items-center gap-1 ${isOld ? 'text-red-100' : 'text-slate-400'}"><i data-lucide="calendar" size="12"></i> ${item.date}</div>${isOld ? '<div class="text-[9px] font-black uppercase text-yellow-300 mt-1">逾期</div>' : ''}</div><div><div class="text-xs font-bold">${item.type === 'overtime' ? 'OT' : 'Off'}: ${item.reason} - ${item.detail}</div><div class="text-[10px] ${isOld ? 'text-red-200' : 'text-slate-400'}">批核: ${item.approver}</div></div></div><div class="flex items-center gap-4"><div class="text-sm font-black">${item.type === 'overtime' ? '+' : '-'}${item.minutes}</div><button onclick="deleteLog(${item.id})" class="p-1.5 rounded-lg ${isOld ? 'text-white' : 'text-slate-300 hover:text-red-500'}"><i data-lucide="trash-2" size="15"></i></button></div></div>`; }).join('')}</div></div>`).join('')}
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function switchTab(tab) { activeTab = tab; selectedNameFilter = ""; render(); }
+        function setFilter(filter) { activeFilter = filter; selectedNameFilter = ""; render(); }
+        function addMember(e) {
+            e.preventDefault();
+            memberList.push({ id: Date.now(), name: document.getElementById('new-name').value.trim(), category: document.getElementById('new-cat').value, isApprover: document.getElementById('new-approver').checked });
+            saveToLocal(); render();
+        }
+        function deleteMember(id) { if(confirm('確定刪除？')) { memberList = memberList.filter(m => m.id !== id); saveToLocal(); render(); } }
+        function toggleApprover(id) { memberList = memberList.map(m => m.id === id ? { ...m, isApprover: !m.isApprover } : m); saveToLocal(); render(); }
+        function submitLog(e) {
+            e.preventDefault();
+            const name = document.getElementById('form-name').value;
+            if (!name) { alert('請選取姓名'); return; }
+            let log = { id: Date.now(), name, category: document.getElementById('form-cat').value, date: document.getElementById('form-date').value, approver: document.getElementById('form-approver').value, type: activeTab };
+            if (activeTab === 'overtime') {
+                const start = document.getElementById('form-start').value;
+                const end = document.getElementById('form-end').value;
+                log.minutes = calculateMinutes(start, end);
+                log.startTime = start; log.endTime = end;
+                log.reason = document.getElementById('form-reason').value;
+                log.detail = document.getElementById('form-detail').value;
+            } else {
+                log.minutes = parseInt(document.getElementById('form-off-min').value);
+                log.reason = '補時'; log.detail = '抵銷時數';
+            }
+            logs.unshift(log); saveToLocal(); render();
+        }
+        function deleteLog(id) { if(confirm('確定刪除？')) { logs = logs.filter(l => l.id !== id); saveToLocal(); render(); } }
+        window.onload = render;
+    </script>
+</body>
+</html>
